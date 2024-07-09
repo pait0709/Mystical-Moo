@@ -1,0 +1,69 @@
+ReadMe
+
+Following triggers have been defined-
+
+
+1)Trigger to update Inventory automatically after checking if quantity of any item falls below 10.
+	delimiter//
+	create trigger reg_inv after update on inventory
+	for each row begin
+	if new.quantity<=10 then update inventory set new.quantity=500 where 	product_id=new.product_id ;
+	end if;
+	end //
+
+2)Trigger generates invoice for orders after update is performed on orders.
+
+  delimiter //
+  create trigger Inv_creat after update on orders
+  for each row begin
+  declare inv_gst_id varchar(40);
+  select GST_id from customer where id=new.order_cust_id into inv_gst_id;
+  insert into Invoice(gst_id,inv_date,inv_price,inv_payment_type,inv_cust_id,inv_order_id)       values(inv_gst_id,current_date(),new.order_price,new.order_payment,new.order_cust_id,new.order_id);
+  end //
+
+3)Trigger generates to insert into shipping details after update is performed on orders
+
+delimiter //
+create trigger Ship_creat after update on orders
+for each row begin
+insert into Shipping_Details(date_order,date_fullfill,shi_payment_type,shi_cust_id,shi_order_id) values(current_date(),null,new.order_payment,new.order_cust_id,new.order_id);
+end //
+
+4)Trigger to update inventory (reduce it after order is updated)
+
+delimiter //
+create trigger updt_inv after insert on OrderProduct 
+for each row begin
+update inventory set quantity=quantity-new.order_product_quantity
+where product_id=new.order_product_id ;
+End//
+
+Following OLAP queries have been defined-
+
+1)Rollup- Query generates the total amt spent by customers till date on orders and the total amt received by the company.
+	Select inv_cust_id,Sum(inv_price) as Total_Sales from Invoice Group by inv_cust_id with ROLLUP;
+
+2)Slice- Query slices the existing inventory data into entries having price>100 and having type "goat".
+	Select * FROM Inventory
+	WHERE price>100 and type='goat';
+3)Pivot- Query pivots the rows entries of 'cows','camel',donkey' types of items in inventory into columns.The three columsn contains the total numbers of cow,camel and donkey types items respectively.
+	SELECT
+  	 SUM(CASE WHEN type = 'cow' THEN quantity ELSE 0 END) AS cow_quantity,
+  	 SUM(CASE WHEN type = 'camel' THEN quantity ELSE 0 END) AS camel_quantity,
+  	 SUM(CASE WHEN type = 'donkey' THEN quantity ELSE 0 END) AS donkey_quantity
+	FROM Inventory;	
+
+4)Drill Down- Query drills down and returns the total number of payments done >30 till date in the different payment types.
+	select inv_payment_type, count(inv_cust_id) as No_of_Cust from Invoice where 	price>1000 group by inv_payment_type
+
+Several other embedded sql have been defined-
+
+1)Displays info about customers orders based on his ID
+	Select order_id, order_price,order_payment, order_status from Orders where order_cust_id;
+
+2)Displays item in inventory corresponding to its ID
+	select * from inventory where product_id;
+ 
+
+
+
